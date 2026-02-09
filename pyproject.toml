@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lyapupy"
+version = "0.1.0"
+authors = [{name = "Ennio dos Santos"}]
+description = "Lyapunov Exponent Analisys Package"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "matplotlib",
+    "random",
+    "math",
+    "decimal",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
