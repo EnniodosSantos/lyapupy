@@ -1,270 +1,247 @@
 import decimal as dc
+import random
 import math
 import matplotlib.pyplot as plt
 import numpy as np
-import random
 
-# Configuração interna
-_CTX = dc.getcontext()
-# --------------------------------------------------------------------------
-# Private Definitions
-# --------------------------------------------------------------------------
+class ChaoticMap:
+    def __init__(self, steps, trans, x0=None, prec=50, seed=None):
+        dc.getcontext().prec = prec
+        self.steps = steps
+        self.trans = trans
+        self.prec = prec
 
-# Constants (Internal use only)
-_r_logistic = 4
-_r_tent = dc.Decimal('2')
-_b_asymm = dc.Decimal('0.4')
-_pi = _CTX.create_decimal_from_float(math.pi)
-_ln2 = _CTX.ln(dc.Decimal(2))
+        if seed is not None:
+            random.seed(seed)
 
-# --- Map Equations --------------------------------------------------------
+        self.x0 = dc.Decimal(str(x0)) if x0 is not None else self.__get_initial_condition()
 
-# Ulam ---------------------------------------------------------------------
+    def __repr__(self):
+        return f"<{self.__class__.__name__}: x0={self.x0:.4f}, steps={self.steps}, trans={self.trans}>"
 
-_ulam_map = lambda x: 1 - 2 * x**2
-_ulam_df = lambda x: -4 * x
-_ulam_lyap = _ln2
+    # Renomeado para __ para ocultar do usuário
+    def __get_initial_condition(self):
+        a, b = self.domain
+        return dc.Decimal(str(random.uniform(a, b)))
 
-# Logistic------------------------------------------------------------------
+    def lyapunov_estimated(self, dec=False):
 
-_logistic_map = lambda x: _r_logistic * x * (1 - x)
-_logistic_df = lambda x: _r_logistic * (1 - 2 * x)
-_logistic_lyap = _ln2
+        x = self.x0
+        soma = dc.Decimal(0)
 
-# Bernoulli-----------------------------------------------------------------
+        # Transient: estabiliza a órbita no atrator
+        for _ in range(self.trans):
+            x = self.f(x)
 
-_bernoulli_map = lambda x: (2 * x) % dc.Decimal(1)
-_bernoulli_df = lambda x: dc.Decimal(2)
-_bernoulli_lyap = _ln2
+        # Summation: média logarítmica das derivadas
+        for _ in range(self.steps):
+            x = self.f(x)
+            deriv = abs(self.df(x))
+            # Proteção contra log(0) em pontos críticos
+            if deriv > 0:
+                soma += deriv.ln()
+            else:
+                soma += dc.Decimal("-1e10") # Penalidade para singularidades
 
-# Gauss----------------------------------------------------------------------
+        lambda_est = soma / dc.Decimal(self.steps)
+        return lambda_est if dec else float(lambda_est)
 
-def _gauss_map(x):
-    if x == 0: return dc.Decimal(0)
-    inv_x = 1 / x
-    return inv_x - inv_x.to_integral_value(rounding=dc.ROUND_FLOOR)
+    def lyapunov_convergence(self, plot=False):
+        """Retorna a evolução do expoente ao longo das iterações."""
+        x = self.x0
+        for _ in range(self.trans):
+            x = self.f(x)
 
-def _gauss_df(x):
-    if x == 0: return dc.Decimal(0)
-    return -1 / (x**2)
+        soma = dc.Decimal(0)
+        evolution = []
 
-_gauss_lyap = (_pi**2) / (dc.Decimal(6) * _ln2)
+        for i in range(1, self.steps + 1):
+            x = self.f(x)
+            soma += abs(self.df(x)).ln()
+            evolution.append(soma / dc.Decimal(i))
 
-# Tent-------------------------------------------------------------------------
+        if plot:
+            self._plot_convergence(evolution)
 
-_tent_map = lambda x: _r_tent * min(x, 1 - x)
-_tent_df = lambda x: _r_tent if x < 0.5 else -_r_tent
-_tent_lyap = _r_tent.ln()
+        return np.array([float(v) for v in evolution])
 
-# Asymmetric Tent---------------------------------------------------------------
-_asymmetric_tent_map = lambda x: (x / _b_asymm) if x < _b_asymm else ((1 - x) / (1 - _b_asymm))
-_asymmetric_tent_df = lambda x: (1 / _b_asymm) if x < _b_asymm else (-1 / (1 - _b_asymm))
-_asymmetric_tent_lyap = -(_b_asymm * _b_asymm.ln()) - ((1 - _b_asymm) * (1 - _b_asymm).ln())
-
-# Chebyshev --------------------------------------------------------------------
-_chebyshev_map = lambda x: 2 * x**2 - 1
-_chebyshev_df = lambda x: 4 * x
-_chebyshev_lyap = _ln2
-
-# Cusp--------------------------------------------------------------------------
-'''
-_cusp_map = lambda x: 1 - 2 * (abs(x).sqrt())
-_cusp_df = lambda x: (-1 / x.abs().sqrt()) if x >= 0 else (1 / x.abs().sqrt())
-_cusp_lyap = dc.Decimal('0.5') * dc.Decimal(2).ln()
-'''
-
-# --- Master Dictionary --------------------------------------------------------
-
-_chaotic_maps = {
-    "Gauss": {"f": _gauss_map, "df": _gauss_df, "l": _gauss_lyap,
-              "domain": {"min": (0),"max": (1)}},
-
-    "Logistic": {"f": _logistic_map, "df": _logistic_df, "l": _logistic_lyap,
-                 "domain": {"min": (0),"max": (1)}},
-
-    "Bernoulli": {"f": _bernoulli_map, "df": _bernoulli_df, "l": _bernoulli_lyap,
-                  "domain": {"min": (0),"max": (1)}},
-
-    "Ulam":  {"f": _ulam_map,  "df": _ulam_df,  "l": _ulam_lyap,
-              "domain": {"min": (-1),"max": (1)}},
-
-    "Tent": {"f": _tent_map,  "df": _tent_df,  "l": _tent_lyap,
-             "domain": {"min": (0),"max": (1)}},
-
-    "Asymmetric Tent": {"f": _asymmetric_tent_map, "df": _asymmetric_tent_df, "l": _asymmetric_tent_lyap,
-                        "domain": {"min": (0),"max": (1)}},
-
-    "Chebyshev": {"f": _chebyshev_map, "df": _chebyshev_df, "l": _chebyshev_lyap,
-                  "domain": {"min": (-1),"max": (1)}},
-
-    # "Cusp": {"f": _cusp_map, "df": _cusp_df, "l": _cusp_lyap}
-}
-
-# --------------------------------------------------------------------------
-# API
-# --------------------------------------------------------------------------
-
-def initial_condition(map_name):
-   if map_name not in _chaotic_maps:
-        raise ValueError(f"Map not found. Options: {available_maps()}")
-   dom = _chaotic_maps[map_name]["domain"]
-   a = dom["min"]
-   b = dom["max"]
-   value = random.uniform(a, b)
-   return value
-
-def lyapunov_convergence(map_name, x0, steps, trans, prec=50, dec=False, plot=False):
-
-    if map_name not in _chaotic_maps: raise ValueError(f"Map not found. Options: {available_maps()}")
-    dc.getcontext().prec = prec
-    x = dc.Decimal(str(x0))
-
-    f  = _chaotic_maps[map_name]["f"]
-    df = _chaotic_maps[map_name]["df"]
-
-    soma = dc.Decimal(0)
-    lambda_evolution = []
-
-    # Transient
-    for _ in range(trans):
-        x = f(x)
-
-    # Lyapunov convergence
-    for i in range(1, steps + 1):
-        x = f(x)
-        soma += dc.getcontext().ln(abs(df(x)))
-        lambda_evolution.append(soma / dc.Decimal(i))
-
-    # Plot (optional)
-    if plot:
-        fig, ax = plt.subplots(figsize=(6, 4))
-        ax.plot(lambda_evolution, lw=1.5)
-        ax.set_xlabel("Iteration")
-        ax.set_ylabel("Lyapunov exponent")
-        ax.set_title(f"Lyapunov convergence — {map_name}")
-        ax.grid(True)
+    def _plot_convergence(self, data):
+        plt.figure(figsize=(8, 4))
+        plt.plot(data, label="Estimated $\lambda$")
+        plt.axhline(float(self.theoretical_lyapunov), color='r', ls='--', label="Theoretical")
+        plt.title(f"Lyapunov Convergence - {self.__class__.__name__}")
+        plt.xlabel("Iterations")
+        plt.ylabel("$\lambda$")
+        plt.legend()
+        plt.grid(True)
         plt.show()
 
-    # Return
-    if dec:
-        return lambda_evolution
-    else:
-        return np.array([float(v) for v in lambda_evolution])
+    def time_series(self, dec=False, plot=False):
 
-def available_maps(): return list(_chaotic_maps.keys())
+        x = self.x0
+        # 1. Transient
+        for _ in range(self.trans):
+            x = self.f(x)
+
+        # 2. Time Series
+        orbit = []
+        for _ in range(self.steps):
+            x = self.f(x)
+            orbit.append(x)
 
 
-def map_time_serie(map_name, x0, steps, trans, prec=50, dec=False, plot=False):
+        if plot:
+            self._plot_series(orbit)
 
-    if map_name not in _chaotic_maps: raise ValueError(f"Map not found. Options: {available_maps()}")
+        return orbit if dec else np.array(orbit, dtype=float)
 
-    dc.getcontext().prec = prec
-    f, x = _chaotic_maps[map_name]["f"], dc.Decimal(str(x0))
-
-    for _ in range(trans): x = f(x)
-
-    data = [x := f(x) for _ in range(steps)]
-
-    if plot: _plot(data, map_name)
-    return data if dec else np.array(data, dtype=float)
-
-def _plot(data, name):
-        fig, ax = plt.subplots(figsize=(6, 4))
-        ax.plot(data, lw=1.5)
-        ax.set_xlabel("n")
-        ax.set_ylabel("$x_n$")
-        ax.set_title(f"{name} - Time Serie")
-        ax.grid(True)
+    def _plot_series(self, data):
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(10, 4))
+        plt.plot(data, lw=0.5, color='#2c3e50')
+        plt.title(f"Time Series: {self.__class__.__name__} (x0={float(self.x0):.4f})")
+        plt.xlabel("n (iterations)")
+        plt.ylabel("$x_n$")
+        plt.grid(True, alpha=0.3)
         plt.show()
 
-def lyapunov_estimated(map_name, x0, steps, trans, prec=50, dec=False):
+    def lyapunov_summary(self, dec=False):
+        """
+        Gera um resumo completo.
+        Se dec=True, mantém alta precisão (Decimal) em todos os campos numéricos.
+        """
+        # Repassa o parâmetro dec para os cálculos e para a série
+        est = self.lyapunov_estimated(dec=dec)
+        series = self.time_series(dec=dec)
 
-    if map_name not in _chaotic_maps: raise ValueError(f"Map not found. Options: {available_maps()}")
+        # Valor teórico
+        theo_val = self.theoretical_lyapunov
+        theo = theo_val if dec else float(theo_val)
 
-    dc.getcontext().prec = prec
-    x0 = dc.Decimal(str(x0))
+        # Cálculo do erro (sempre feito em Decimal internamente para precisão)
+        theo_dec = dc.Decimal(str(theo_val))
+        est_dec = dc.Decimal(str(est))
+        error = abs((est_dec - theo_dec) / theo_dec) * 100 if theo_dec != 0 else dc.Decimal(0)
 
-    f  = _chaotic_maps[map_name]["f"]
-    df = _chaotic_maps[map_name]["df"]
+        return {
+            "map": self.__class__.__name__,
+            "theoretical": theo,
+            "estimated": est,
+            "error_percent": f"{error:.8f}%" if dec else f"{float(error):.4f}%",
+            "steps": self.steps,
+            "transient": self.trans,
+            "x0": self.x0 if dec else float(self.x0),
+            "time_series": series}
 
-    x = x0
-    soma = dc.Decimal(0)
+class LogisticMap(ChaoticMap):
+    domain = (0, 1)
 
-    # Transiente
-    for _ in range(trans):
-        x = f(x)
+    def __init__(self, steps, trans, r=4, x0=None, prec=50, seed=None):
+        self.r = dc.Decimal(str(r))
+        super().__init__(steps, trans, x0, prec, seed)
 
-    # Soma logarítmica
-    for _ in range(steps):
-        x = f(x)
-        soma += dc.getcontext().ln(abs(df(x)))
+    # Correção: usar self.r em vez de r
+    def f(self, x):
+        return self.r * x * (dc.Decimal('1') - x)
 
-    lambda_est = soma / dc.Decimal(steps)
+    def df(self, x):
+        return self.r * (dc.Decimal('1') - dc.Decimal('2') * x)
 
-    if dec:
-        return lambda_est
-    else:
-        return float(lambda_est)
+    @property
+    def theoretical_lyapunov(self):
+        # Para r=4, o valor teórico é ln(2)
+        if self.r == dc.Decimal('4'):
+            return dc.Decimal('2').ln()
+        return None # Lyapunov varia para r < 4
 
 
-def lyapunov_estimated(map_name, x0, steps, trans, prec=50, dec=False):
-    """
-    Estimates the Lyapunov Exponent.
-    """
-    if map_name not in _chaotic_maps:
-        raise ValueError(f"Map '{map_name}' not found.")
+class UlamMap(ChaoticMap):
+    domain = (-1, 1)
+    def f(self, x): return dc.Decimal('1') - dc.Decimal('2') * x**2
+    def df(self, x): return dc.Decimal('-4') * x
 
-    dc.getcontext().prec = prec
-    x0 = dc.Decimal(str(x0))
+    @property
+    def theoretical_lyapunov(self): return dc.Decimal('2').ln()
 
-    f  = _chaotic_maps[map_name]["f"]
-    df = _chaotic_maps[map_name]["df"]
 
-    x = x0
-    soma = dc.Decimal(0)
+class BernoulliMap(ChaoticMap):
+    domain = (0, 1)
 
-    for _ in range(trans):
-        x = f(x)
+    def f(self, x): return (2 * x) % dc.Decimal(1)
+    def df(self, x): return dc.Decimal(2)
 
-    for _ in range(steps):
-        x = f(x)
-        deriv = df(x)
-        # Proteção extra contra log(0)
-        if deriv == 0:
-            soma += dc.Decimal("-1e5")
-        else:
-            soma += dc.getcontext().ln(abs(deriv))
+    @property
+    def theoretical_lyapunov(self):
+        return dc.Decimal('2').ln()
 
-    lambda_est = soma / dc.Decimal(steps)
 
-    return lambda_est if dec else float(lambda_est)
+class GaussMap(ChaoticMap):
+    domain = (1e-12, 0.999999999999)
 
-def theoretical_lyapunov(map_name, dec=False):
-    """Returns the theoretical Lyapunov exponent for the map."""
-    if map_name not in _chaotic_maps:
-        raise ValueError(f"Map '{map_name}' not found.")
+    def f(self, x):
+        if x == 0: return dc.Decimal(0)
+        inv_x = 1 / x
+        # floor(1/x)
+        return inv_x - inv_x.to_integral_value(rounding=dc.ROUND_FLOOR)
 
-    lam = _chaotic_maps[map_name]["l"]
-    return lam if dec else float(lam)
+    def df(self, x):
+        if x == 0: return dc.Decimal(0)
+        return -1 / (x**2)
 
-def lyapunov_summary(map_name, x0, steps, trans, prec=50, dec=False, plot=False):
+    @property
+    def theoretical_lyapunov(self):
+        ctx = dc.getcontext()
+        pi = ctx.create_decimal_from_float(math.pi)
+        return (pi**2) / (dc.Decimal('6') * dc.Decimal('2').ln())
 
-    if map_name not in _chaotic_maps:
-        raise ValueError(f"Map '{map_name}' not found.")
+class TentMap(ChaoticMap):
+    domain = (0, 1)
 
-    series = map_time_serie(map_name, x0, steps, trans, prec, dec, plot)
-    estimated = lyapunov_estimated(map_name, x0, steps, trans, prec, dec)
-    theoretical = theoretical_lyapunov(map_name, dec)
+    def f(self, x): return dc.Decimal('2') * min(x, 1 - x)
 
-    erro = abs((estimated - theoretical) / theoretical) * 100
-    erro = erro if dec else float(erro)
+    def df(self, x): return dc.Decimal('2') if x < 0.5 else -dc.Decimal('2')
 
-    return {
-        "map": map_name,
-        "theoretical": theoretical,
-        "estimated": estimated,
-        "error": erro,
-        "time_serie": series
+    @property
+    def theoretical_lyapunov(self):
+        return dc.Decimal('2').ln()
 
-    }
 
+class AsymetricMap(ChaoticMap):
+    domain = (0, 1)
+
+    def f(self, x): return (x / dc.Decimal('0.4')) if x < dc.Decimal('0.4') else ((1 - x) / (1 - dc.Decimal('0.4')))
+    def df(self, x): return (1 / dc.Decimal('0.4')) if x < dc.Decimal('0.4') else (-1 / (1 - dc.Decimal('0.4')))
+
+    @property
+    def theoretical_lyapunov(self):
+        return -(dc.Decimal('0.4') * dc.Decimal('0.4').ln()) - ((1 - dc.Decimal('0.4')) * (1 - dc.Decimal('0.4')).ln())
+
+
+class ChebyshevMap(ChaoticMap):
+    domain = (-1, 1)
+    def f(self, x): return dc.Decimal('2') * x**2 - dc.Decimal('1')
+    def df(self, x): return dc.Decimal('4') * x
+
+    @property
+    def theoretical_lyapunov(self): return dc.Decimal('2').ln()
+
+class GeneralizedBernoulliMap(ChaoticMap):
+    domain = (0, 1)
+
+    def __init__(self, steps, trans, m=2, x0=None, prec=50, seed=None):
+        # m é o multiplicador (slope) do mapa
+        self.m = dc.Decimal(str(m))
+        super().__init__(steps, trans, x0, prec, seed)
+
+    def f(self, x):
+        # {mx} = (m * x) % 1
+        return (self.m * x) % dc.Decimal('1')
+
+    def df(self, x):
+        # A derivada é constante e igual a m em quase todo o domínio
+        return self.m
+
+    @property
+    def theoretical_lyapunov(self):
+        # Para o mapa de Bernoulli generalizado, lambda = ln(m)
+        return self.m.ln()

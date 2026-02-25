@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lyappy"
-version = "0.1.0"
+name = "lyapy"
+version = "0.2.0"
 authors = [{name = "Ennio dos Santos"}]
 description = "Lyapunov Exponent Analisys Package"
 requires-python = ">=3.8"

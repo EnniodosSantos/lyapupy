@@ -1,4 +1,4 @@
-# LyapPy
+# LyaPy
 
 Pacote Python para análise de expoentes de Lyapunov, desenvolvido por Ennio dos Santos.
 
@@ -14,6 +14,6 @@ pip install git+https://github.com/EnniodosSantos/lyappy.git
 
 Em construção
 
-https://enniodossantos.github.io/lyappy-docs/
+https://enniodossantos.github.io/lyapy-docs/
 
 

@@ -1,4 +1,4 @@
-# LyapPy
+# LyaPy
 
 Pacote Python para análise de expoentes de Lyapunov, desenvolvido por Ennio dos Santos.
 
