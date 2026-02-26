@@ -191,7 +191,7 @@ class BernoulliMap(ChaoticMap):
     @property
     def density(self, x):
     # rho(x) = 1 para o domínio [0, 1]
-    return dc('1')
+        return dc('1')
 
 
 class GaussMap(ChaoticMap):
@@ -216,8 +216,8 @@ class GaussMap(ChaoticMap):
     @property
     def density(self, x):
     # rho(x) = 1 / (ln(2) * (1 + x))
-    ln2 = dc('2').ln()
-    return dc('1') / (ln2 * (dc('1') + x))
+        ln2 = dc('2').ln()
+        return dc('1') / (ln2 * (dc('1') + x))
 
 class TentMap(ChaoticMap):
     domain = (0, 1)
@@ -233,7 +233,7 @@ class TentMap(ChaoticMap):
     @property
     def density(self, x):
     # rho(x) = 1 para o domínio [0, 1]
-    return dc('1')
+        return dc('1')
 
 
 class AsymetricMap(ChaoticMap):
