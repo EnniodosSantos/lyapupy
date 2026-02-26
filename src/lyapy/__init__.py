@@ -1,6 +1,6 @@
 # lyappy/__init__.py
 
-from .maps import (
+from .lyapy import (
     ChaoticMap, LogisticMap, UlamMap, GaussMap,
     BernoulliMap, TentMap, AsymetricMap, ChebyshevMap, GeneralizedBernoulliMap
 )
