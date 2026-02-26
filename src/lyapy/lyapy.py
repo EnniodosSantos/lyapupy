@@ -133,6 +133,9 @@ class ChaoticMap:
             "x0": self.x0 if dec else float(self.x0),
             "time_series": series}
 
+
+#============== Maps =========================================================================================
+
 class LogisticMap(ChaoticMap):
     domain = (0, 1)
 
@@ -154,6 +157,12 @@ class LogisticMap(ChaoticMap):
             return dc.Decimal('2').ln()
         return None # Lyapunov varia para r < 4
 
+    def density(self, x):
+    # rho(x) = 1 / (pi * sqrt(x * (1 - x)))
+        ctx = dc.getcontext()
+        pi = ctx.create_decimal_from_float(math.pi)
+        denom = pi * (x * (dc('1') - x)).sqrt()
+        return dc('1') / denom if denom != 0 else dc('inf')
 
 class UlamMap(ChaoticMap):
     domain = (-1, 1)
@@ -163,6 +172,11 @@ class UlamMap(ChaoticMap):
     @property
     def theoretical_lyapunov(self): return dc.Decimal('2').ln()
 
+    @property
+    def density(self, x):
+        ctx = dc.getcontext()
+        pi = ctx.create_decimal_from_float(math.pi)
+        return dc.Decimal('1') / (pi*(math.sqrt(1 - x**2)))
 
 class BernoulliMap(ChaoticMap):
     domain = (0, 1)
@@ -173,6 +187,11 @@ class BernoulliMap(ChaoticMap):
     @property
     def theoretical_lyapunov(self):
         return dc.Decimal('2').ln()
+
+    @property
+    def density(self, x):
+    # rho(x) = 1 para o domínio [0, 1]
+    return dc('1')
 
 
 class GaussMap(ChaoticMap):
@@ -194,6 +213,12 @@ class GaussMap(ChaoticMap):
         pi = ctx.create_decimal_from_float(math.pi)
         return (pi**2) / (dc.Decimal('6') * dc.Decimal('2').ln())
 
+    @property
+    def density(self, x):
+    # rho(x) = 1 / (ln(2) * (1 + x))
+    ln2 = dc('2').ln()
+    return dc('1') / (ln2 * (dc('1') + x))
+
 class TentMap(ChaoticMap):
     domain = (0, 1)
 
@@ -204,6 +229,11 @@ class TentMap(ChaoticMap):
     @property
     def theoretical_lyapunov(self):
         return dc.Decimal('2').ln()
+
+    @property
+    def density(self, x):
+    # rho(x) = 1 para o domínio [0, 1]
+    return dc('1')
 
 
 class AsymetricMap(ChaoticMap):
@@ -219,11 +249,33 @@ class AsymetricMap(ChaoticMap):
 
 class ChebyshevMap(ChaoticMap):
     domain = (-1, 1)
-    def f(self, x): return dc.Decimal('2') * x**2 - dc.Decimal('1')
-    def df(self, x): return dc.Decimal('4') * x
+
+    def __init__(self, steps, trans, k=2, x0=None, prec=50, seed=None):
+        self.k = int(k)
+        super().__init__(steps, trans, x0, prec, seed)
+
+    def f(self, x):
+        # Loop simples para T_k(x)
+        t0, t1 = dc('1'), x
+        for _ in range(self.k - 1):
+            t0, t1 = t1, dc('2') * x * t1 - t0
+        return t1
+
+    def df(self, x):
+        # Loop simples para a derivada T'_k(x)
+        u0, u1 = dc('1'), dc('2') * x
+        for _ in range(self.k - 2):
+            u0, u1 = u1, dc('2') * x * u1 - u0
+        return dc(self.k) * u1
 
     @property
-    def theoretical_lyapunov(self): return dc.Decimal('2').ln()
+    def theoretical_lyapunov(self):
+        return dc(self.k).ln()
+
+    def density(self, x):
+        ctx = dc.getcontext()
+        pi = ctx.create_decimal_from_float(math.pi)
+        return dc('1') / (pi * (dc('1') - x**2).sqrt())
 
 class GeneralizedBernoulliMap(ChaoticMap):
     domain = (0, 1)
