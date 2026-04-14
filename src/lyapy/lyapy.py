@@ -177,7 +177,7 @@ class UlamGeneralized(ChaoticMap):
         return D('1') - self.r* x**2
 
     def df(self, x):
-        return D('-2')*r*x
+        return D('-2')*self.r*x
 
 
 
