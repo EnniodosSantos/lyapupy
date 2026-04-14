@@ -165,6 +165,21 @@ class UlamMap(ChaoticMap):
         pi = D(str(math.pi))
         return D('1') / (pi * (D('1') - x**2).sqrt())
 
+class UlamGenaralized(ChaoticMap):
+    domain = (-1,1)
+
+    def __init__(self, steps, trans, r=4, x0=None, prec=50, seed=None):
+        self.r = D(str(r))
+        super().__init__(steps, trans, x0, prec, seed)
+
+    def f(self, x):
+        return D('1') - (self.r * x**2)
+
+    def df(self, x):
+        return D('-2')*r*x
+
+
+
 
 class BernoulliMap(ChaoticMap):
     domain = (0, 1)
