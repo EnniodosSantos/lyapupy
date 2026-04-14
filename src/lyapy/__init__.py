@@ -2,7 +2,7 @@
 
 from .lyapy import (
     ChaoticMap, LogisticMap, UlamMap, GaussMap,
-    BernoulliMap, TentMap, AsymetricMap, ChebyshevMap, GeneralizedBernoulliMap, UlamGenaralized
+    BernoulliMap, TentMap, AsymetricMap, ChebyshevMap, GeneralizedBernoulliMap, UlamGeneralized
 )
 
 def available_maps():
@@ -17,5 +17,5 @@ def available_maps():
 # Define o que será exportado ao usar 'from lyappy import *'
 __all__ = [
     'available_maps', 'LogisticMap', 'UlamMap', 'GaussMap',
-    'BernoulliMap', 'TentMap', 'AsymetricMap', 'ChebyshevMap','GeneralizedBernoulliMap', 'UlamGenaralized'
+    'BernoulliMap', 'TentMap', 'AsymetricMap', 'ChebyshevMap','GeneralizedBernoulliMap', 'UlamGeneralized'
 ]
