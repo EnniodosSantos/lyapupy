@@ -173,7 +173,7 @@ class UlamGeneralized(ChaoticMap):
         super().__init__(steps, trans, x0, prec, seed)
 
     def f(self, x):
-        return D('1') - (self.r * x**2)
+        return D('1') - self.r* x**2
 
     def df(self, x):
         return D('-2')*r*x
