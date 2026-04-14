@@ -2,7 +2,7 @@
 
 from .lyapy import (
     ChaoticMap, LogisticMap, UlamMap, GaussMap,
-    BernoulliMap, TentMap, AsymetricMap, ChebyshevMap, GeneralizedBernoulliMap
+    BernoulliMap, TentMap, AsymetricMap, ChebyshevMap, GeneralizedBernoulliMap, UlamGenaralized
 )
 
 def available_maps():
